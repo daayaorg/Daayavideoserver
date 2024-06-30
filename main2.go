@@ -41,8 +41,8 @@ func main() {
 	http.HandleFunc("/classify", classifyVideos)
 	http.HandleFunc("/help", helpAPI) // Add this line
 
-	fmt.Println("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	fmt.Println("Server starting on :8182")
+	log.Fatal(http.ListenAndServe(":8182", nil))
 }
 
 func listVideos(w http.ResponseWriter, r *http.Request) {

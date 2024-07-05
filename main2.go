@@ -13,6 +13,7 @@ import (
 
 type VideoInfo struct {
 	Title          string   `json:"title"`
+	Author         string   `json:"author"`
 	Description    string   `json:"description"`
 	Filename       string   `json:"filename"`
 	Classification string   `json:"classification"`
@@ -32,6 +33,7 @@ const (
 	videoStorePath    = basePath + "videos"
 	descTag           = "description"
 	titleTag          = "title"
+	authorTag         = "author"
 	classificationTag = "classification"
 )
 
@@ -51,7 +53,7 @@ func listVideos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	videos, err := getVideoList()
+	videos, err := getVideoList(videoStorePath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -64,15 +66,15 @@ func listVideos(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getVideoList() ([]VideoInfo, error) {
+func getVideoList(videoStoreDir string) ([]VideoInfo, error) {
 	var videos []VideoInfo
 
-	err := filepath.Walk(videoStorePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(videoStoreDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if info.IsDir() && path != videoStorePath {
+		if info.IsDir() && path != videoStoreDir {
 			videoInfo, err := getVideoInfo(path)
 			if err != nil {
 				return err
@@ -89,29 +91,45 @@ func getVideoList() ([]VideoInfo, error) {
 func getVideoInfo(dirPath string) (VideoInfo, error) {
 	var videoInfo VideoInfo
 
-	title, err := os.ReadFile(filepath.Join(dirPath, "title"))
+	pathStr := filepath.Join(dirPath, titleTag)
+	title, err := os.ReadFile(pathStr)
 	if err != nil {
-		return videoInfo, err
+		fmt.Printf("could not find 'title' in %s, error=%v\n", pathStr, err)
+		//dont return error here. The title was not found. return an empty title
+		//return videoInfo, err
 	}
 	videoInfo.Title = strings.TrimSpace(string(title))
 
-	description, err := os.ReadFile(filepath.Join(dirPath, "description"))
+	pathStr = filepath.Join(dirPath, authorTag)
+	author, err := os.ReadFile(pathStr)
 	if err != nil {
-		return videoInfo, err
+		fmt.Printf("could not find 'author' in %s, error=%v\n", pathStr, err)
+		//dont return error here. The author was not found. return an empty author
+		//return videoInfo, err
+	}
+	videoInfo.Author = strings.TrimSpace(string(author))
+
+	description, err := os.ReadFile(filepath.Join(dirPath, descTag))
+	if err != nil {
+		fmt.Printf("could not find 'description' in %s, error=%v\n", pathStr, err)
+		//dont return error here. The description was not found. return an empty description
+		//return videoInfo, err
 	}
 	videoInfo.Description = strings.TrimSpace(string(description))
 
-	classification, err := os.ReadFile(filepath.Join(dirPath, "classification"))
+	classification, err := os.ReadFile(filepath.Join(dirPath, classificationTag))
 	if err != nil {
-		return videoInfo, err
+		fmt.Printf("could not find 'classification' in %s, error=%v\n", pathStr, err)
+		//dont return error here. The classification was not found. return an empty classification
+		//return videoInfo, err
 	}
 	videoInfo.Classification = strings.TrimSpace(string(classification))
-
 	videoInfo.Filename = filepath.Base(dirPath)
 	videoInfo.Taxonomy = parseTaxonomy(videoInfo.Classification)
 
 	return videoInfo, nil
 }
+
 func streamVideo(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -136,6 +154,7 @@ func streamVideo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "video/mp4")
 	http.ServeContent(w, r, filename, time.Now(), video)
 }
+
 func parseTaxonomy(classification string) Taxonomy {
 	parts := strings.Split(classification, "/")
 	taxonomy := Taxonomy{}
@@ -173,7 +192,7 @@ func classifyVideos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	videos, err := getVideoList()
+	videos, err := getVideoList(videoStorePath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

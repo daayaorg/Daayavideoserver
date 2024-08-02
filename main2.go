@@ -140,6 +140,7 @@ func streamVideo(w http.ResponseWriter, r *http.Request) {
 	videoPath := filepath.Join(videoStorePath, filename, filename+".mp4")
 
 	println("videoPath=%s", videoPath)
+
 	video, err := os.Open(videoPath)
 	if err != nil {
 		http.Error(w, "Video not found", http.StatusNotFound)

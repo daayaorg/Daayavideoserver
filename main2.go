@@ -136,7 +136,7 @@ func streamVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := strings.TrimPrefix(r.URL.Path, "/stream/")
+	filename := strings.TrimPrefix(r.URL.Path, "/api/v1/stream/")
 	videoPath := filepath.Join(videoStorePath, filename, filename+".mp4")
 
 	println("videoPath=%s", videoPath)

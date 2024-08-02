@@ -38,9 +38,9 @@ const (
 )
 
 func main() {
-	http.HandleFunc("/videos", listVideos)
-	http.HandleFunc("/stream/", streamVideo)
-	http.HandleFunc("/classify", classifyVideos)
+	http.HandleFunc("/api/v1/videos", listVideos)
+	http.HandleFunc("/api/v1/stream/", streamVideo)
+	http.HandleFunc("/api/v1/classify", classifyVideos)
 	http.HandleFunc("/help", helpAPI) // Add this line
 
 	fmt.Println("Server starting on :8182")
@@ -139,6 +139,7 @@ func streamVideo(w http.ResponseWriter, r *http.Request) {
 	filename := strings.TrimPrefix(r.URL.Path, "/stream/")
 	videoPath := filepath.Join(videoStorePath, filename, filename+".mp4")
 
+	println("videoPath=%s", videoPath)
 	video, err := os.Open(videoPath)
 	if err != nil {
 		http.Error(w, "Video not found", http.StatusNotFound)
@@ -254,20 +255,20 @@ func helpAPI(w http.ResponseWriter, r *http.Request) {
 
 	endpoints := []APIEndpoint{
 		{
-			Path:        "/videos",
+			Path:        "/api/v1/videos",
 			Method:      "GET",
 			Description: "Returns a list of all available videos with their titles and descriptions.",
 		},
 		{
-			Path:        "/stream/{filename}",
+			Path:        "/api/v1/stream/{filename}",
 			Method:      "GET",
 			Description: "Streams the requested video file.",
 			Parameters:  "{filename}: The name of the video file to stream.",
 		},
 		{
-			Path:        "/classify",
+			Path:        "/api/v1/classify?rank=rankName&value=rankValue",
 			Method:      "GET",
-			Description: "Filters videos based on their taxonomic classification.",
+			Description: "Filters videos based on their taxonomic classification. For example, https://host/classify?rank=class&value=elementary",
 			Parameters:  "rank: The taxonomic rank to filter by (class, order, family, tribe, or genus). value: The specific taxonomic value to filter for.",
 		},
 		{

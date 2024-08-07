@@ -1,0 +1,9 @@
+Package: daayavideoservice
+Version: $(head -1 ../VERSION) 
+Architecture: amd64
+Section: development
+Priority: optional
+Depends: libc6 (>= 2.31)
+Maintainer: JP Brahma <jp@daaya.org>
+Homepage:https://www.daaya.org/
+Description: Daaya Video Server Service

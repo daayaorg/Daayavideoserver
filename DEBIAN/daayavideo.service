@@ -1,0 +1,21 @@
+#SPDX-FileCopyrightText: © 2022 3nets, Inc. <it@3nets.io>
+[Unit]
+Description=Daaya Video Service
+Requires=network.target
+After=network.target
+StartLimitIntervalSec=1
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+WorkingDirectory=/opt/daayavideoservice/
+ExecStart=/opt/daayavideoservice/daayavideoserver
+ExecStop=
+StandardOutput=append:/opt/daayavideoservice/daayavideoserver.log
+StandardError=append:/opt/daayavideoservice/daayavideoserver.log
+
+[Install]
+WantedBy=multi-user.target
+

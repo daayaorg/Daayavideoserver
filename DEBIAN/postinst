@@ -1,0 +1,8 @@
+#!/bin/sh
+chmod +x /opt/daayavideoservice/daayavideoserver
+touch /opt/daayavideoservice/daayavideoserver.log
+cp /opt/daayavideoservice/daayavideo.service /etc/systemd/system && \
+    systemctl enable daayavideo.service && \
+    systemctl restart daayavideo.service && \
+    systemctl daemon-reload
+exit 0

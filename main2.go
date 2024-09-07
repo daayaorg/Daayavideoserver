@@ -50,7 +50,7 @@ func main() {
 		Addr: ":https",
 		TLSConfig: &tls.Config{
 			GetCertificate: certManager.GetCertificate,
-			MinVersion:     tls.VersionTLS12, // improves cert reputation score at https://www.ssllabs.com/ssltest/
+			MinVersion:     tls.VersionTLS11, // improves cert reputation score at https://www.ssllabs.com/ssltest/
 		},
 	}
 	http.HandleFunc("/api/v1/videos", listVideos)

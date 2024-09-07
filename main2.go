@@ -42,6 +42,7 @@ const (
 func main() {
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
+		Email:      "jp@daaya.org",
 		HostPolicy: autocert.HostWhitelist("api.daaya.org"), //Your domain here
 		Cache:      autocert.DirCache("certs"),              //Folder for storing certificates
 	}
@@ -58,7 +59,12 @@ func main() {
 	http.HandleFunc("/help", helpAPI) // Add this line
 
 	fmt.Println("Server starting on :80 and :443")
-	go log.Fatal(http.ListenAndServe(":http", certManager.HTTPHandler(nil)))
+	go func() {
+		err := http.ListenAndServe(":http", certManager.HTTPHandler(nil))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 	log.Fatal(server.ListenAndServeTLS("", "")) //Key and cert are coming from Let's Encrypt
 
 	// old code. remove after testing

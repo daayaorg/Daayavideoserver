@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/crypto/acme/autocert"
 	"log"
 	"net/http"
 	"os"
@@ -38,13 +40,36 @@ const (
 )
 
 func main() {
+	certManager := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		Email:      "jp@daaya.org",
+		HostPolicy: autocert.HostWhitelist("api.daaya.org"), //Your domain here
+		Cache:      autocert.DirCache("certs"),              //Folder for storing certificates
+	}
+	server := &http.Server{
+		Addr: ":https",
+		TLSConfig: &tls.Config{
+			GetCertificate: certManager.GetCertificate,
+			MinVersion:     tls.VersionTLS12, // improves cert reputation score at https://www.ssllabs.com/ssltest/
+		},
+	}
 	http.HandleFunc("/api/v1/videos", listVideos)
 	http.HandleFunc("/api/v1/stream/", streamVideo)
 	http.HandleFunc("/api/v1/classify", classifyVideos)
 	http.HandleFunc("/help", helpAPI) // Add this line
 
-	fmt.Println("Server starting on :8182")
-	log.Fatal(http.ListenAndServe(":8182", nil))
+	fmt.Println("Server starting on :80 and :443")
+	go func() {
+		err := http.ListenAndServe(":http", certManager.HTTPHandler(nil))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+	log.Fatal(server.ListenAndServeTLS("", "")) //Key and cert are coming from Let's Encrypt
+
+	// old code. remove after testing
+	// log.Fatal(http.ListenAndServe(":8182", nil))
+
 }
 
 func listVideos(w http.ResponseWriter, r *http.Request) {

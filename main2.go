@@ -50,7 +50,7 @@ func main() {
 		Addr: ":https",
 		TLSConfig: &tls.Config{
 			GetCertificate: certManager.GetCertificate,
-			//MinVersion:     tls.VersionTLS11, // improves cert reputation score at https://www.ssllabs.com/ssltest/
+			MinVersion:     tls.VersionTLS12, // improves cert reputation score at https://www.ssllabs.com/ssltest/
 		},
 	}
 	http.HandleFunc("/api/v1/videos", listVideos)
@@ -59,14 +59,12 @@ func main() {
 	http.HandleFunc("/help", helpAPI) // Add this line
 
 	fmt.Println("Server starting on :80 and :443")
-	/*
-		go func() {
-			err := http.ListenAndServe(":http", certManager.HTTPHandler(nil))
-			if err != nil {
-				log.Fatal(err)
-			}
-		}()
-	*/
+	go func() {
+		err := http.ListenAndServe(":http", certManager.HTTPHandler(nil))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 	log.Fatal(server.ListenAndServeTLS("", "")) //Key and cert are coming from Let's Encrypt
 
 	// old code. remove after testing

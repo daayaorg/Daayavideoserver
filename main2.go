@@ -120,7 +120,7 @@ func getVideoInfo(dirPath string) (VideoInfo, error) {
 	title, err := os.ReadFile(pathStr)
 	if err != nil {
 		fmt.Printf("could not find 'title' in %s, error=%v\n", pathStr, err)
-		//dont return error here. The title was not found. return an empty title
+		//don't return error here. The title was not found. return an empty title
 		//return videoInfo, err
 	}
 	videoInfo.Title = strings.TrimSpace(string(title))
@@ -129,7 +129,7 @@ func getVideoInfo(dirPath string) (VideoInfo, error) {
 	author, err := os.ReadFile(pathStr)
 	if err != nil {
 		fmt.Printf("could not find 'author' in %s, error=%v\n", pathStr, err)
-		//dont return error here. The author was not found. return an empty author
+		//don't return error here. The author was not found. return an empty author
 		//return videoInfo, err
 	}
 	videoInfo.Author = strings.TrimSpace(string(author))
@@ -137,7 +137,7 @@ func getVideoInfo(dirPath string) (VideoInfo, error) {
 	description, err := os.ReadFile(filepath.Join(dirPath, descTag))
 	if err != nil {
 		fmt.Printf("could not find 'description' in %s, error=%v\n", pathStr, err)
-		//dont return error here. The description was not found. return an empty description
+		//don't return error here. The description was not found. return an empty description
 		//return videoInfo, err
 	}
 	videoInfo.Description = strings.TrimSpace(string(description))
@@ -145,7 +145,7 @@ func getVideoInfo(dirPath string) (VideoInfo, error) {
 	classification, err := os.ReadFile(filepath.Join(dirPath, classificationTag))
 	if err != nil {
 		fmt.Printf("could not find 'classification' in %s, error=%v\n", pathStr, err)
-		//dont return error here. The classification was not found. return an empty classification
+		//don't return error here. The classification was not found. return an empty classification
 		//return videoInfo, err
 	}
 	videoInfo.Classification = strings.TrimSpace(string(classification))

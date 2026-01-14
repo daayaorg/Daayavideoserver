@@ -15,10 +15,13 @@ WorkingDirectory=/opt/daayavideoservice/
 ExecStart=/opt/daayavideoservice/daayavideoserver
 ExecStop=
 # Restrict service capabilities
-NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
-ReadWritePaths=/var/daaya/videos
+ReadWritePaths=/var/daaya/videos /opt/daayavideoservice/certs
+# Allow binding to privileged ports (80, 443)
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+Environment="DAAYA_PORT=443"
 #StandardOutput=append:/opt/daayavideoservice/daayavideoserver.log
 #StandardError=append:/opt/daayavideoservice/daayavideoserver.log
 

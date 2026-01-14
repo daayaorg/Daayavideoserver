@@ -23,6 +23,11 @@ touch /opt/daayavideoservice/daayavideoserver.log
 chown daayavideo:daayavideo /opt/daayavideoservice/daayavideoserver.log
 chmod 640 /opt/daayavideoservice/daayavideoserver.log
 
+# Create certs directory for Let's Encrypt certificates
+mkdir -p /opt/daayavideoservice/certs
+chown daayavideo:daayavideo /opt/daayavideoservice/certs
+chmod 750 /opt/daayavideoservice/certs
+
 # Copy and enable systemd service
 cp /opt/daayavideoservice/daayavideo.service /etc/systemd/system/
 systemctl daemon-reload

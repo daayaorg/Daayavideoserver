@@ -21,3 +21,13 @@
 go.work
 go.work.sum
 daayavideoserver
+
+# Debian packages
+*.deb
+daayavideoservice-*.deb
+
+# Coverage reports
+coverage.html
+coverage.txt
+coverage.out
+coverage

@@ -1,0 +1,30 @@
+# Systemd service override example
+# Place this content in: /etc/systemd/system/daayavideo.service.d/override.conf
+#
+# Create directory and file:
+#   sudo mkdir -p /etc/systemd/system/daayavideo.service.d
+#   sudo cp daayavideo.service.override.example /etc/systemd/system/daayavideo.service.d/override.conf
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart daayavideo.service
+
+[Service]
+# Custom video storage path
+Environment="DAAYA_VIDEO_PATH=/custom/video/path"
+
+# Custom port (without colon)
+Environment="DAAYA_PORT=9000"
+
+# Additional environment variables
+# Environment="OTHER_VAR=value"
+
+# Memory limits (optional)
+# MemoryMax=512M
+# MemorySwapMax=1G
+
+# CPU limits (optional)
+# CPUQuota=50%
+
+# Restart configuration (optional)
+# RestartSec=5
+# StartLimitIntervalSec=60
+# StartLimitBurst=5

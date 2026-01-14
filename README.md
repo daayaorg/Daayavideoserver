@@ -12,7 +12,7 @@ Daaya Video Server provides REST API for streaming educational videos with hiera
 1. **Path Traversal Prevention** - All filename inputs are validated and sanitized
 2. **Non-root Service User** - Runs as dedicated `daayavideo` system user
 3. **Input Validation** - Taxonomy rank parameters validated against allow list
-4. **Systemd Hardening** - `NoNewPrivileges=yes`, `PrivateTmp=yes`, `ProtectSystem=strict`
+4. **Systemd Hardening** - `PrivateTmp=yes`, `ProtectSystem=strict`, `AmbientCapabilities=CAP_NET_BIND_SERVICE` for privileged ports
 5. **Proper Error Handling** - No silent error swallowing, graceful degradation for missing metadata
 
 ### Security Configuration:
@@ -28,8 +28,8 @@ Daaya Video Server provides REST API for streaming educational videos with hiera
 # Custom video storage path (default: /var/daaya/videos)
 export DAAYA_VIDEO_PATH=/path/to/videos
 
-# Custom port (default: :8182)
-export DAAYA_PORT=8182  # or :9000
+# Custom port (default: :443, set via DAAYA_PORT=443 in service file)
+export DAAYA_PORT=8182  # example: change back to 8182 if needed (default is 443)
 ```
 
 ### Configuration Precedence:
@@ -56,7 +56,7 @@ Example: `elementary/math/number system/counting`
 
 ## API Documentation
 
-### Base URL: `http://host:8182/api/v1`
+### Base URL: `https://host:443/api/v1` (HTTP redirects from port 80, default HTTPS port is 443)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -70,19 +70,19 @@ Example: `elementary/math/number system/counting`
 ### Examples:
 ```bash
 # List all videos
-curl http://localhost:8182/api/v1/videos
+curl -k https://localhost:443/api/v1/videos
 
 # Stream video
-curl http://localhost:8182/api/v1/stream/video1
+curl -k https://localhost:443/api/v1/stream/video1
 
 # Filter by taxonomy
-curl "http://localhost:8182/api/v1/classify?rank=class&value=elementary"
+curl -k "https://localhost:443/api/v1/classify?rank=class&value=elementary"
 
 # Health check
-curl http://localhost:8182/health
+curl -k https://localhost:443/health
 
 # Metrics
-curl http://localhost:8182/metrics
+curl -k https://localhost:443/metrics
 ```
 
 ## Deployment
@@ -121,6 +121,7 @@ sudo systemctl start daayavideo.service
 - User: `daayavideo`
 - Logs: `/opt/daayavideoservice/daayavideoserver.log`
 - Auto-restart: always (with 1s delay)
+- Privileged ports: Capability CAP_NET_BIND_SERVICE added to allow binding to ports 80/443 (HTTPS port set to 443 via DAAYA_PORT=443)
 
 ### Custom Configuration (Systemd Override):
 ```bash
@@ -130,6 +131,10 @@ sudo systemctl edit daayavideo.service
 [Service]
 Environment="DAAYA_VIDEO_PATH=/custom/video/path"
 Environment="DAAYA_PORT=9000"
+# For standard ports (80/443) also add:
+# AmbientCapabilities=CAP_NET_BIND_SERVICE
+# CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+# Environment="DAAYA_PORT=443"
 ```
 
 ## Health Monitoring
@@ -244,7 +249,7 @@ sudo systemctl edit daayavideo.service
 ### Debug Mode:
 ```bash
 # Run manually with debug output
-DAAYA_PORT=8182 ./daayavideoserver
+DAAYA_PORT=443 ./daayavideoserver
 ```
 
 ## Development

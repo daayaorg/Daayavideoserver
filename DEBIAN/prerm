@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+# Handle different removal scenarios
+case "$1" in
+    remove|purge)
+        # Stop and disable the service
+        if systemctl is-active --quiet daayavideo.service 2>/dev/null; then
+            systemctl stop daayavideo.service
+        fi
+        if systemctl is-enabled --quiet daayavideo.service 2>/dev/null; then
+            systemctl disable daayavideo.service
+        fi
+        ;;
+    upgrade)
+        # Service will be restarted by new package's postinst
+        # Just stop it, new package will start it
+        if systemctl is-active --quiet daayavideo.service 2>/dev/null; then
+            systemctl stop daayavideo.service
+        fi
+        ;;
+esac
+
+exit 0

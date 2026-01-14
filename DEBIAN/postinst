@@ -1,8 +1,32 @@
 #!/bin/sh
-chmod +x /opt/daayavideoservice/daayavideoserver
+set -e
+
+# Create daayavideo user and group if they don't exist
+if ! getent group daayavideo >/dev/null; then
+    groupadd --system daayavideo
+fi
+
+if ! id daayavideo >/dev/null 2>&1; then
+    useradd --system --no-create-home --gid daayavideo --shell /usr/sbin/nologin daayavideo
+fi
+
+# Create video directory with proper permissions
+mkdir -p /var/daaya/videos
+chown daayavideo:daayavideo /var/daaya/videos
+chmod 750 /var/daaya/videos
+
+# Set permissions on the binary and log
+chown daayavideo:daayavideo /opt/daayavideoservice/daayavideoserver
+chmod 755 /opt/daayavideoservice/daayavideoserver
+
 touch /opt/daayavideoservice/daayavideoserver.log
-cp /opt/daayavideoservice/daayavideo.service /etc/systemd/system && \
-    systemctl enable daayavideo.service && \
-    systemctl restart daayavideo.service && \
-    systemctl daemon-reload
+chown daayavideo:daayavideo /opt/daayavideoservice/daayavideoserver.log
+chmod 640 /opt/daayavideoservice/daayavideoserver.log
+
+# Copy and enable systemd service
+cp /opt/daayavideoservice/daayavideo.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable daayavideo.service
+systemctl restart daayavideo.service
+
 exit 0

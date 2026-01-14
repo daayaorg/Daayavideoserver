@@ -77,8 +77,18 @@ func main() {
 		},
 	}
 
+	// Create a handler that redirects all HTTP traffic to HTTPS
+	redirectHandler := certManager.HTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Redirect all HTTP requests to HTTPS
+		httpsURL := "https://" + r.Host + r.URL.Path
+		if r.URL.RawQuery != "" {
+			httpsURL += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, httpsURL, http.StatusMovedPermanently)
+	}))
+
 	go func() {
-		err := http.ListenAndServe(":http", certManager.HTTPHandler(nil))
+		err := http.ListenAndServe(":http", redirectHandler)
 		if err != nil {
 			log.Fatal(err)
 		}

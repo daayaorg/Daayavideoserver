@@ -22,9 +22,10 @@ ReadWritePaths=/var/daaya/videos /opt/daayavideoservice/certs
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 Environment="DAAYA_PORT=443"
+# Optional: comma-separated hostnames for Let's Encrypt
+# Environment="DAAYA_HOSTNAMES=api.daaya.org,api2.daaya.org"
 #StandardOutput=append:/opt/daayavideoservice/daayavideoserver.log
 #StandardError=append:/opt/daayavideoservice/daayavideoserver.log
 
 [Install]
 WantedBy=multi-user.target
-

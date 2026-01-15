@@ -30,6 +30,9 @@ export DAAYA_VIDEO_PATH=/path/to/videos
 
 # Custom port (default: :443, set via DAAYA_PORT=443 in service file)
 export DAAYA_PORT=8182  # example: change back to 8182 if needed (default is 443)
+
+# Comma-separated hostnames for Let's Encrypt (default: api.daaya.org)
+export DAAYA_HOSTNAMES=api.daaya.org,api2.daaya.org
 ```
 
 ### Configuration Precedence:
@@ -160,7 +163,7 @@ Environment="DAAYA_PORT=9000"
 - `daaya_errors_total` - Total HTTP errors (status >= 400)
 - `daaya_streams_total` - Total video streams served
 - `daaya_classify_requests_total` - Total classify requests
-- `daaya_last_error` - Last error message (gauge)
+- `daaya_last_error` - Last error HTTP status code (gauge, 0 if none)
 
 ### Rate Limiting:
 - 10 requests per minute per IP (configurable in code)

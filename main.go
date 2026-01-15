@@ -42,15 +42,14 @@ const (
 )
 
 func main() {
+	cfg := loadConfig()
+	videoStorePath = cfg.VideoStorePath
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		Email:      "jp@daaya.org",
-		HostPolicy: autocert.HostWhitelist("api.daaya.org"), //Your domain here
-		Cache:      autocert.DirCache("certs"),              //Folder for storing certificates
+		HostPolicy: cfg.HostPolicy,
+		Cache:      autocert.DirCache("certs"), // Folder for storing certificates
 	}
-
-	cfg := loadConfig()
-	videoStorePath = cfg.VideoStorePath
 
 	// Chain middlewares: rate limiting -> metrics -> logging -> handler
 	http.HandleFunc("/api/v1/videos", rateLimitMiddleware(metricsMiddleware(loggingMiddleware(listVideos))))
@@ -100,22 +99,30 @@ func main() {
 type Config struct {
 	VideoStorePath string
 	Port           string
+	HostPolicy     autocert.HostPolicy
 }
 
 var (
 	videoStorePath string
 	// Rate limiter: 10 requests per minute per IP
-	ipRateLimiter = newIPRateLimiter(10.0, 60)
+	ipRateLimiter = newIPRateLimiter(10.0, 60, 10*time.Minute, 30*time.Minute)
 	// Metrics
 	metrics = newMetrics()
 )
 
 // IPRateLimiter struct for per-IP rate limiting
 type IPRateLimiter struct {
-	ips map[string]*rate.Limiter
-	mu  sync.RWMutex
-	r   rate.Limit
-	b   int
+	ips            map[string]*ipRateLimiterEntry
+	mu             sync.RWMutex
+	r              rate.Limit
+	b              int
+	cleanupEvery   time.Duration
+	staleAfter     time.Duration
+}
+
+type ipRateLimiterEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
 }
 
 // Metrics struct for Prometheus-style metrics
@@ -125,7 +132,7 @@ type Metrics struct {
 	errorsTotal      uint64
 	streamsTotal     uint64
 	classifyRequests uint64
-	lastError        string
+	lastErrorCode    int
 }
 
 // newMetrics creates a new Metrics instance
@@ -141,11 +148,11 @@ func (m *Metrics) incRequests() {
 }
 
 // incErrors increments error counter and sets last error message
-func (m *Metrics) incErrors(errMsg string) {
+func (m *Metrics) incErrors(statusCode int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.errorsTotal++
-	m.lastError = errMsg
+	m.lastErrorCode = statusCode
 }
 
 // incStreams increments video streams counter
@@ -180,20 +187,42 @@ daaya_streams_total %d
 # HELP daaya_classify_requests_total Total classify requests
 # TYPE daaya_classify_requests_total counter
 daaya_classify_requests_total %d
-# HELP daaya_last_error Last error message
+# HELP daaya_last_error Last error HTTP status code (0 if none)
 # TYPE daaya_last_error gauge
-daaya_last_error{error="%s"} 1
-`, m.requestsTotal, m.errorsTotal, m.streamsTotal, m.classifyRequests, m.lastError)
+daaya_last_error %d
+`, m.requestsTotal, m.errorsTotal, m.streamsTotal, m.classifyRequests, m.lastErrorCode)
 }
 
 // newIPRateLimiter creates a new IPRateLimiter
-func newIPRateLimiter(r rate.Limit, b int) *IPRateLimiter {
-	return &IPRateLimiter{
-		ips: make(map[string]*rate.Limiter),
-		mu:  sync.RWMutex{},
-		r:   r,
-		b:   b,
+func newIPRateLimiter(r rate.Limit, b int, cleanupEvery, staleAfter time.Duration) *IPRateLimiter {
+	limiter := &IPRateLimiter{
+		ips:          make(map[string]*ipRateLimiterEntry),
+		mu:           sync.RWMutex{},
+		r:            r,
+		b:            b,
+		cleanupEvery: cleanupEvery,
+		staleAfter:   staleAfter,
 	}
+	go limiter.cleanupLoop()
+	return limiter
+}
+
+func (i *IPRateLimiter) cleanupLoop() {
+	ticker := time.NewTicker(i.cleanupEvery)
+	for range ticker.C {
+		i.cleanup()
+	}
+}
+
+func (i *IPRateLimiter) cleanup() {
+	cutoff := time.Now().Add(-i.staleAfter)
+	i.mu.Lock()
+	for ip, entry := range i.ips {
+		if entry.lastSeen.Before(cutoff) {
+			delete(i.ips, ip)
+		}
+	}
+	i.mu.Unlock()
 }
 
 // getLimiter returns rate limiter for given IP
@@ -203,11 +232,15 @@ func (i *IPRateLimiter) getLimiter(ip string) *rate.Limiter {
 
 	limiter, exists := i.ips[ip]
 	if !exists {
-		limiter = rate.NewLimiter(i.r, i.b)
+		limiter = &ipRateLimiterEntry{
+			limiter:  rate.NewLimiter(i.r, i.b),
+			lastSeen: time.Now(),
+		}
 		i.ips[ip] = limiter
 	}
 
-	return limiter
+	limiter.lastSeen = time.Now()
+	return limiter.limiter
 }
 
 // rateLimitMiddleware applies rate limiting by IP
@@ -252,7 +285,7 @@ func metricsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		// Increment error counter if status >= 400
 		if wrapper.statusCode >= 400 {
-			metrics.incErrors(http.StatusText(wrapper.statusCode))
+			metrics.incErrors(wrapper.statusCode)
 		}
 
 		// Increment specific counters based on path
@@ -294,6 +327,7 @@ func loadConfig() Config {
 	cfg := Config{
 		VideoStorePath: "/var/daaya/videos",
 		Port:           ":8182",
+		HostPolicy:     autocert.HostWhitelist("api.daaya.org"),
 	}
 
 	if envPath := os.Getenv("DAAYA_VIDEO_PATH"); envPath != "" {
@@ -309,7 +343,26 @@ func loadConfig() Config {
 		}
 	}
 
+	if envHostnames := strings.TrimSpace(os.Getenv("DAAYA_HOSTNAMES")); envHostnames != "" {
+		hosts := splitCSV(envHostnames)
+		if len(hosts) > 0 {
+			cfg.HostPolicy = autocert.HostWhitelist(hosts...)
+		}
+	}
+
 	return cfg
+}
+
+func splitCSV(input string) []string {
+	parts := strings.Split(input, ",")
+	var out []string
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }
 func listVideos(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

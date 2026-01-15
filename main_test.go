@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -289,13 +290,31 @@ func Test_loadConfig(t *testing.T) {
 	}
 }
 
+func Test_loadConfigHostnames(t *testing.T) {
+	os.Unsetenv("DAAYA_VIDEO_PATH")
+	os.Unsetenv("DAAYA_PORT")
+	os.Setenv("DAAYA_HOSTNAMES", "api.example.com,api2.example.com")
+	defer os.Unsetenv("DAAYA_HOSTNAMES")
+
+	cfg := loadConfig()
+	if cfg.HostPolicy == nil {
+		t.Fatal("loadConfig() HostPolicy should not be nil")
+	}
+	if err := cfg.HostPolicy(context.Background(), "api.example.com"); err != nil {
+		t.Errorf("HostPolicy should allow api.example.com, got error: %v", err)
+	}
+	if err := cfg.HostPolicy(context.Background(), "not-allowed.example.com"); err == nil {
+		t.Error("HostPolicy should reject not-allowed.example.com")
+	}
+}
+
 func TestMetrics(t *testing.T) {
 	m := newMetrics()
 
 	// Test initial state
-	if m.requestsTotal != 0 || m.errorsTotal != 0 || m.streamsTotal != 0 || m.classifyRequests != 0 || m.lastError != "" {
-		t.Errorf("New metrics should be zero, got: requests=%d, errors=%d, streams=%d, classify=%d, lastError=%s",
-			m.requestsTotal, m.errorsTotal, m.streamsTotal, m.classifyRequests, m.lastError)
+	if m.requestsTotal != 0 || m.errorsTotal != 0 || m.streamsTotal != 0 || m.classifyRequests != 0 || m.lastErrorCode != 0 {
+		t.Errorf("New metrics should be zero, got: requests=%d, errors=%d, streams=%d, classify=%d, lastErrorCode=%d",
+			m.requestsTotal, m.errorsTotal, m.streamsTotal, m.classifyRequests, m.lastErrorCode)
 	}
 
 	// Test incRequests
@@ -305,12 +324,12 @@ func TestMetrics(t *testing.T) {
 	}
 
 	// Test incErrors
-	m.incErrors("test error")
+	m.incErrors(http.StatusNotFound)
 	if m.errorsTotal != 1 {
 		t.Errorf("incErrors() should increment errors to 1, got %d", m.errorsTotal)
 	}
-	if m.lastError != "test error" {
-		t.Errorf("incErrors() should set lastError to 'test error', got %s", m.lastError)
+	if m.lastErrorCode != http.StatusNotFound {
+		t.Errorf("incErrors() should set lastErrorCode to %d, got %d", http.StatusNotFound, m.lastErrorCode)
 	}
 
 	// Test incStreams
@@ -332,7 +351,7 @@ func TestMetrics(t *testing.T) {
 		"daaya_errors_total 1",
 		"daaya_streams_total 1",
 		"daaya_classify_requests_total 1",
-		`daaya_last_error{error="test error"} 1`,
+		"daaya_last_error 404",
 	}
 	for _, substr := range expectedSubstrings {
 		if !strings.Contains(exported, substr) {
@@ -342,7 +361,7 @@ func TestMetrics(t *testing.T) {
 }
 
 func TestNewIPRateLimiter(t *testing.T) {
-	limiter := newIPRateLimiter(rate.Limit(10), 5)
+	limiter := newIPRateLimiter(rate.Limit(10), 5, time.Second, time.Minute)
 	if limiter.r != rate.Limit(10) {
 		t.Errorf("Expected rate limit 10, got %v", limiter.r)
 	}
@@ -355,7 +374,7 @@ func TestNewIPRateLimiter(t *testing.T) {
 }
 
 func TestIPRateLimiterGetLimiter(t *testing.T) {
-	limiter := newIPRateLimiter(rate.Limit(2), 1)
+	limiter := newIPRateLimiter(rate.Limit(2), 1, time.Second, time.Minute)
 
 	// First call for an IP should create new limiter
 	ip1Limiter := limiter.getLimiter("192.168.1.1")
@@ -469,8 +488,8 @@ func TestMetricsMiddleware(t *testing.T) {
 	if metrics.errorsTotal != 1 {
 		t.Errorf("metricsMiddleware should increment errorsTotal for status 404, got %d", metrics.errorsTotal)
 	}
-	if metrics.lastError != "Not Found" {
-		t.Errorf("metricsMiddleware should set lastError to 'Not Found', got %s", metrics.lastError)
+	if metrics.lastErrorCode != http.StatusNotFound {
+		t.Errorf("metricsMiddleware should set lastErrorCode to %d, got %d", http.StatusNotFound, metrics.lastErrorCode)
 	}
 
 	// Test stream path detection
@@ -507,7 +526,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 	originalLimiter := ipRateLimiter
 	defer func() { ipRateLimiter = originalLimiter }()
 
-	ipRateLimiter = newIPRateLimiter(rate.Limit(1000), 1000) // Very permissive
+	ipRateLimiter = newIPRateLimiter(rate.Limit(1000), 1000, time.Second, time.Minute) // Very permissive
 
 	handlerCalled := false
 	testHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -544,7 +563,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 	}
 
 	// Test rate limiting with zero rate (should never allow)
-	ipRateLimiter = newIPRateLimiter(0, 0) // Zero rate, zero burst
+	ipRateLimiter = newIPRateLimiter(0, 0, time.Second, time.Minute) // Zero rate, zero burst
 
 	handlerCalled = false
 	wrappedStrict := rateLimitMiddleware(func(w http.ResponseWriter, r *http.Request) {
@@ -1108,7 +1127,7 @@ func TestMetricsHandler(t *testing.T) {
 
 	// Increment some metrics
 	metrics.incRequests()
-	metrics.incErrors("test error")
+	metrics.incErrors(http.StatusNotFound)
 	metrics.incStreams()
 	metrics.incClassify()
 
@@ -1132,7 +1151,7 @@ func TestMetricsHandler(t *testing.T) {
 		"daaya_errors_total 1",
 		"daaya_streams_total 1",
 		"daaya_classify_requests_total 1",
-		`daaya_last_error{error="test error"} 1`,
+		"daaya_last_error 404",
 	}
 	for _, expected := range expectedMetrics {
 		if !strings.Contains(body, expected) {
